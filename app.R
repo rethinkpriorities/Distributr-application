@@ -3971,7 +3971,7 @@ server <- function(input, output, session) {
       if(input$plot_format == "Standard") {
         ggplot(my_plot_data) +
           plot_limits +
-          geom_histogram(aes(x = x), alpha = .8, fill = "#327291", color = "black", bins = as.numeric(input$n_bins), linewidth = .275) +
+          geom_histogram(aes(x = x), alpha = .8, fill = "#327291", color = "black", breaks = seq(min(my_plot_data$x), max(my_plot_data$x), length.out = as.numeric(input$n_bins) + 1), linewidth = .275) +
           geom_vline(data = point_estimate_line, aes(xintercept = as.numeric(x)), linewidth = .67) +
           geom_vline(data = interval_line, aes(xintercept = as.numeric(x)), linetype = "dashed", linewidth = .67) +
           labs(title = "Histogram",
@@ -3983,7 +3983,7 @@ server <- function(input, output, session) {
         ggplot(my_plot_data) +
           plot_limits +
           scale_y_continuous(labels = paste0(seq(0, 100, 10), "%"), breaks = seq(0, 500000, 50000)) +
-          geom_histogram(aes(x = x, y = cumsum(..count..)), alpha = .8, fill = "#327291", color = "black", bins = as.numeric(input$n_bins), linewidth = .275) +
+          geom_histogram(aes(x = x, y = cumsum(..count..)), alpha = .8, fill = "#327291", color = "black", breaks = seq(min(my_plot_data$x), max(my_plot_data$x), length.out = as.numeric(input$n_bins) + 1), linewidth = .275) +
           geom_vline(data = point_estimate_line, aes(xintercept = as.numeric(x)), linewidth = .67) +
           geom_vline(data = interval_line, aes(xintercept = as.numeric(x)), linetype = "dashed", linewidth = .67) +
           labs(title = "Histogram",
