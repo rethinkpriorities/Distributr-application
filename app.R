@@ -43,6 +43,12 @@ ui <- fluidPage(
     )
   ),
 
+  tags$head(tags$style(HTML("
+  .modal-header .modal-title {
+    text-align: center;
+    width: 100%;
+  }"))),
+
   tags$head(
     tags$style(HTML(".multicol {-webkit-column-count: 2; /* Chrome, Safari, Opera */-moz-column-count: 2; /* Firefox */column-count: 2;}"))
 
@@ -77,7 +83,7 @@ ui <- fluidPage(
            tags$div(id="rect8", class="rectangle"),
            tags$div(id="rect9", class="rectangle"),
            tags$div(id="rect10", class="rectangle"),
-             tags$div(id="rect11", class="rectangle")
+           tags$div(id="rect11", class="rectangle")
   ),
 
   br(),
@@ -131,58 +137,86 @@ ui <- fluidPage(
 
   #### UI selection options ####
   fluidRow(
-    column(3,
-           fluidRow(column(10,
-                           offset = 1,
-                           align = "center",
-                           selectInput("distribution_choice",
-                                       "Distribution:",
-                                       choices = c("Beta", "Beta as %", "Normal", "Skew normal", "Exponential", "Log-normal", "Student's t", "Uniform"),
-                                       selected = "Beta"),
-                           hr(),
-                           uiOutput("parameter_ui") ,
-                           br()
-           ))
-    ),
-    column(3,
-           fluidRow(column(10,
-                           offset = 1,
-                           align = "center",
-                           selectInput("plot_choice",
-                                       "Plot type:",
-                                       choices = c("Histogram", "Percentogram", "Density", "Points"),
-                                       selected = "Histogram"),
-                           selectInput("plot_format",
-                                       "Plot format:",
-                                       choices = c("Standard", "Cumulative"),
-                                       selected = "Standard"),
-                           uiOutput("plot_options")
-           ))
-    ),
-    column(3,
-           fluidRow(column(10,
-                           offset = 1,
-                           align = "center",
-                           selectInput("summary_range_type",
-                                       "Interval shows (dotted lines):",
-                                       choices = c("Highest density interval",
-                                                   "Quantile/equal-tailed interval"),
-                                       selected = "Highest density interval"),
-                           sliderInput("summary_range_number",
-                                       "Interval width:",
-                                       min = 5,
-                                       max = 99,
-                                       value = 95,
-                                       step = 1,
-                                       ticks = FALSE),
-                           selectInput("summary_point_type",
-                                       "Point estimate shows (solid line):",
-                                       choices = c("Mean",
-                                                   "Median",
-                                                   "Mode"),
-                                       selected = "Mean"),
-           ))
-    ),
+    column(9,
+           fluidRow(
+             column(4,
+                    fluidRow(column(10,
+                                    offset = 1,
+                                    align = "center",
+                                    uiOutput("distribution_choice_ui"),
+                                    hr(),
+                                    uiOutput("parameter_ui") ,
+                                    br()
+                    ))
+             ),
+             column(4,
+                    fluidRow(column(10,
+                                    offset = 1,
+                                    align = "center",
+                                    selectInput("plot_choice",
+                                                "Plot type:",
+                                                choices = c("Histogram", "Percentogram", "Density", "Points"),
+                                                selected = "Histogram"),
+                                    selectInput("plot_format",
+                                                "Plot format:",
+                                                choices = c("Standard", "Cumulative"),
+                                                selected = "Standard"),
+                                    uiOutput("plot_options")
+                    ))
+             ),
+             column(4,
+                    fluidRow(column(10,
+                                    offset = 1,
+                                    align = "center",
+                                    selectInput("summary_range_type",
+                                                "Interval shows (dotted lines):",
+                                                choices = c("Highest density interval",
+                                                            "Quantile/equal-tailed interval"),
+                                                selected = "Highest density interval"),
+                                    sliderInput("summary_range_number",
+                                                "Interval width:",
+                                                min = 5,
+                                                max = 99,
+                                                value = 95,
+                                                step = 1,
+                                                ticks = FALSE),
+                                    selectInput("summary_point_type",
+                                                "Point estimate shows (solid line):",
+                                                choices = c("Mean",
+                                                            "Median",
+                                                            "Mode"),
+                                                selected = "Mean"),
+                    ))
+             ),
+           ),
+           hr(),
+           fluidRow(
+             column(4,
+                    offset = 2,
+                    align = "center",
+                    br(),
+                    actionButton("upload_custom",
+                                 "Upload custom distribution",
+                                 style = "color: #ffffff; background-color: #2f6e8d; border-color: #2f6e8d",
+                                 width = "90%"),
+                    br()),
+             column(4,
+                    align = "center",
+                    br(),
+                    uiOutput("remove_custom_ui"),
+                    br())
+
+           ),
+           hr(),
+           br(),
+           fluidRow(
+             column(10,
+                    offset = 1,
+                    align = "center",
+                    uiOutput("code_text_ui")),
+             br(),
+           )
+           ),
     column(3,
            fluidRow(column(10,
                            id = "right-column",
@@ -190,10 +224,8 @@ ui <- fluidPage(
                            align = "center",
                            p("You can download 10000 samples from your specified distributions as a csv file using the download button below."),
                            p("Create your data by adding (or clearing/overwriting) columns with the buttons below, and then click the download button."),
-                           uiOutput("n_samples_ui"),
-                           # textInput("name_sample",
-                           #           "Column name:"),
                            uiOutput("select_column_ui"),
+                           uiOutput("name_sample_ui"),
                            uiOutput("store_sample_ui"),
                            br(),
                            uiOutput("clear_sample_ui"),
@@ -212,18 +244,11 @@ ui <- fluidPage(
   hr(),
   br(),
 
-  fluidRow(
-    column(10,
-           offset = 1,
-           align = "center",
-           verbatimTextOutput("code_text"))
-  ),
-
   br()
 
 )
 
-server <- function(input, output) {
+server <- function(input, output, session) {
 
   #### hdp code ####
   hdp <- function(data) {
@@ -406,24 +431,6 @@ server <- function(input, output) {
   }
 
   #### nice_num function ####
-  # nice_num <- function(number, decimals = 2, remove_lead = TRUE) {
-  #
-  #   sprintf_string <- glue::glue('%.{decimals}f')
-  #
-  #   get_to_dp <- sprintf(sprintf_string, number)
-  #
-  #   if(remove_lead == TRUE) {
-  #     output <- sub("^0+", "", get_to_dp)
-  #     output <- stringr::str_replace(output, "-0.", "-.")
-  #   }
-  #   else {
-  #     output <- get_to_dp
-  #   }
-  #
-  #   return(output)
-  #
-  # }
-
   nice_num <- function(number, decimals = 2, remove_lead = TRUE) {
 
     sprintf_string <- sprintf('%%.%df', decimals)
@@ -724,13 +731,448 @@ server <- function(input, output) {
 
   #### Code text output ####
   code_text_value <-
-    reactiveVal("extraDistr::rprop(1000, 10, .5)")
+    reactiveVal("extraDistr::rprop(n, 10, .5)")
 
-  output$code_text <- renderText(
+  code_text_reactive_values <- reactiveValues(
+    my_text = "extraDistr::rprop(n, 10, .5)"
+  )
 
-    code_text_value()
+  update_text_function <- function(my_input) {
+    if(!my_input %in% c("Beta", "Beta as %", "Normal", "Skew normal", "Exponential", "Log-normal", "Student's t", "Uniform")) {
+      return()
+    }
+    else if(my_input == "Beta") {
+      delay(2000, code_text_reactive_values$my_text <- as.character(glue::glue("extraDistr::rprop(n, {input$beta_precision}, {input$beta_mean})")))
+    }
+    else if(my_input == "Normal") {
+      delay(2000, code_text_reactive_values$my_text <- glue::glue("rnorm(n, {input$normal_mean}, {input$normal_sd})"))
+    }
+    else if(my_input == "Skew normal") {
+      delay(2000, code_text_reactive_values$my_text <- glue::glue("sn::rsn(n, {input$skewnormal_location}, {input$skewnormal_scale}, {input$skewnormal_slant})"))
+    }
+    else if(my_input == "Beta as %") {
+      delay(2000, code_text_reactive_values$my_text <- glue::glue("extraDistr::rprop(n, {input$betapercent_precision}, {input$betapercent_mean}) * 100"))
+    }
+    else if(my_input == "Exponential") {
+      delay(2000, code_text_reactive_values$my_text <- glue::glue("rexp(n, {input$exp_rate})"))
+    }
+    else if(my_input == "Log-normal") {
+      delay(2000, code_text_reactive_values$my_text <- glue::glue("rlnorm(n, {input$lognormal_mean}, {input$lognormal_sd})"))
+    }
+    else if(my_input == "Student's t") {
+      delay(2000, code_text_reactive_values$my_text <- glue::glue("stevemisc::rst(n, {input$t_df}, {input$t_location}, {input$t_scale})"))
+    }
+    else if(my_input == "Uniform") {
+      delay(2000, code_text_reactive_values$my_text <- glue::glue("runif(n, {input$uniform_min}, {input$uniform_max})"))
+    }
+  }
+
+  observeEvent(input$distribution_choice, {
+
+    update_text_function(my_input = input$distribution_choice)
+
+  })
+
+  observeEvent(input$beta_update, {
+
+    update_text_function(my_input = input$distribution_choice)
+
+  })
+
+  observeEvent(input$betapercent_update, {
+
+    update_text_function(my_input = input$distribution_choice)
+
+  })
+
+  observeEvent(input$normal_update, {
+
+    update_text_function(my_input = input$distribution_choice)
+
+  })
+
+  observeEvent(input$skewnormal_update, {
+
+    update_text_function(my_input = input$distribution_choice)
+
+  })
+
+  observeEvent(input$exp_update, {
+
+    update_text_function(my_input = input$distribution_choice)
+
+  })
+
+  observeEvent(input$lognormal_update, {
+
+    update_text_function(my_input = input$distribution_choice)
+
+  })
+
+  observeEvent(input$t_update, {
+
+    update_text_function(my_input = input$distribution_choice)
+
+  })
+
+  observeEvent(input$uniform_update, {
+
+    update_text_function(my_input = input$distribution_choice)
+
+  })
+
+
+  output$code_text_ui <- renderUI({
+
+    if(!should_render_ui()) {
+      return()
+    }
+
+    if(!input$distribution_choice %in% c("Beta", "Beta as %", "Normal", "Skew normal", "Exponential", "Log-normal", "Student's t", "Uniform")) {
+      p(HTML("This is a custom distribution that you've uploaded,<br>so there is no associated R code."))
+    }
+    else {
+      p(HTML(glue::glue("You can generate this distribution in R with the following code,<br>where <code>n</code> should be replaced with your desired number of samples:<br><code>{code_text_reactive_values$my_text}</code>")))
+    }
+
+  })
+
+  #### Distribution choice UI section ####
+  should_render_ui <- reactiveVal(FALSE)
+
+  ##### reactive values for custom distribution distribution_values #####
+  distribution_values <- reactiveValues(
+    distribution_list = list("Distributions" = c("Beta", "Beta as %", "Normal", "Skew normal", "Exponential", "Log-normal", "Student's t", "Uniform")),
+    n_custom = 0,
+    custom_data = as.list(rep(NA, 15)),
+    custom_data_summaries = as.list(rep(NA, 15)),
+    custom_data_quantiles = as.list(rep(NA, 15)),
+    custom_data_hdis = as.list(rep(NA, 15)),
+    data_5000 = as.list(rep(NA, 15)),
+    data_density = as.list(rep(NA, 15))
 
   )
+
+  ##### ui buttons for custom distribution #####
+  # add custom distributions
+  output$distribution_choice_ui <- renderUI({
+
+    selectInput("distribution_choice",
+                "Distribution:",
+                choices = distribution_values$distribution_list,
+                selected = "Beta")
+
+  })
+
+  # remove custom distributions
+  output$remove_custom_ui <- renderUI({
+
+    if(!should_render_ui()) {
+      return()
+    }
+
+    if(length(distribution_values$distribution_list) == 1) {
+      disabled(actionButton("remove_custom",
+                            "Remove custom distribution",
+                            style="color: #ffffff; background-color: #ff8f6f; border-color: #ff8f6f",
+                            width = "90%")
+               )
+    }
+    else {
+      actionButton("remove_custom",
+                   "Remove custom distribution",
+                   style="color: #ffffff; background-color: #ff8f6f; border-color: #ff8f6f",
+                   width = "90%")
+    }
+
+  })
+
+  ##### remove_custom observe event and modal dialogue #####
+  observeEvent(input$remove_custom, {
+
+    showModal(modalDialog(
+      easyClose = TRUE,
+      title = span("Select and remove custom distributions..."),
+      fluidRow(column(12,
+                      align = "center",
+                      p('Use the dropdown menu below to select the custom distributions you would like to remove.'),
+                      p('A total of 15 custom distributions are allowed at a time.'),
+                      selectInput("remove_custom_dropdown",
+                                "Remove:",
+                                multiple = TRUE,
+                                selected = NULL,
+                                choices = distribution_values$distribution_list$Custom),
+                      actionButton("remove_custom_confirm",
+                                   "Confirm removal",
+                                   style="color: #ffffff; background-color: #ff8f6f; border-color: #ff8f6f")
+      )),
+      footer = tagList(
+        modalButton("Cancel")
+      )
+    ))
+
+  })
+
+  # confirming the removal:
+  observeEvent(input$remove_custom_confirm, {
+
+    # if they haven't selected anything then just close the modal
+    if(is.null(input$remove_custom_dropdown)) {
+      removeModal()
+      return()
+    }
+    # if they have selected something then...
+    else {
+      # find out which of the things they have selected and get their numeric positions
+      targets_for_removal <- which(distribution_values$distribution_list$Custom %in% input$remove_custom_dropdown)
+
+      # if the number of things selected for removal is equivalent to every custom distribution
+      # then just reset the custom stuff back to scratch
+      if(length(targets_for_removal) == length(distribution_values$distribution_list$Custom)) {
+        distribution_values$distribution_list <- list("Distributions" = c("Beta", "Beta as %", "Normal", "Skew normal", "Exponential", "Log-normal", "Student's t", "Uniform"))
+        distribution_values$custom_data <- as.list(rep(NA, 15))
+        distribution_values$custom_data_summaries <- as.list(rep(NA, 15))
+        distribution_values$custom_data_quantiles <- as.list(rep(NA, 15))
+        distribution_values$custom_data_hdis <- as.list(rep(NA, 15))
+        distribution_values$data_5000 <- as.list(rep(NA, 15))
+        distribution_values$data_density <- as.list(rep(NA, 15))
+        shinyjs::delay(250,
+                       removeModal())
+        return()
+      }
+      # otherwise we need to target and modify the specific things
+      else {
+        # remove the targeted things from the respective lists
+        distribution_values$distribution_list$Custom <- distribution_values$distribution_list$Custom[-c(targets_for_removal)]
+        distribution_values$custom_data <- distribution_values$custom_data[-c(targets_for_removal)]
+        distribution_values$custom_data_summaries <- distribution_values$custom_data_summaries[-c(targets_for_removal)]
+        distribution_values$custom_data_quantiles <- distribution_values$custom_data_quantiles[-c(targets_for_removal)]
+        distribution_values$custom_data_hdis <- distribution_values$custom_data_hdis[-c(targets_for_removal)]
+        distribution_values$data_5000 <- distribution_values$data_5000[-c(targets_for_removal)]
+        distribution_values$data_density <- distribution_values$data_density[-c(targets_for_removal)]
+        shinyjs::delay(250,
+                       removeModal())
+        return()
+      }
+
+    }
+
+  })
+
+  ##### observe event for custom distribution #####
+  observeEvent(input$upload_custom, {
+
+    showModal(modalDialog(
+      easyClose = TRUE,
+      title = span("Upload a distribution from a csv file..."),
+      fluidRow(column(12,
+                      align = "center",
+                      p('You can upload a .csv file containing a custom distribution, or distributions, to plot.'),
+                      p('The .csv file must contain only those columns that you wish to upload and view. Each column must have a unique name, and contain only numeric values (ensure that any formulas are converted to numeric values, for example).'),
+                      p('The plotting and summary functions are designed for working with distributions of thousands of samples, so they may work poorly or crash the app if you upload data that doesn\'t have many samples.'),
+                      p('Up to 15 such custom distributions are supported.'),
+                      fileInput("upload_custom_proper",
+                                "Upload CSV File",
+                                accept = ".csv")
+                      )),
+      footer = tagList(
+        modalButton("Cancel")
+      )
+    ))
+
+  })
+
+  ##### function to update custom data #####
+  update_custom_summary <- function(custom_target = 1) {
+
+    data <- distribution_values$custom_data[[custom_target]]
+
+    #code_text_value(glue::glue("This is a custom distribution"))
+
+    distribution_values$custom_data_summaries[[custom_target]] <-
+      summarise(data,
+                Mean = mean(x),
+                Median = median(x),
+                Mode = hdp(x),
+                `Lower ETI` = quantile(x, (1 - (input$summary_range_number / 100)) / 2),
+                `Upper ETI` = quantile(x, (input$summary_range_number / 100) + (1 - (input$summary_range_number / 100)) / 2))
+
+    distribution_values$custom_data_quantiles[[custom_target]] <-
+      tibble(
+        Min = nice_num(min(data$x), 2),
+        `2.5%` = nice_num(quantile(data$x, .025), 2),
+        `5%` =  nice_num(quantile(data$x, .05), 2),
+        `10%` = nice_num(quantile(data$x, .1), 2),
+        `25%` = nice_num(quantile(data$x, .25), 2),
+        `50%` = nice_num(quantile(data$x, .5), 2),
+        `75%` = nice_num(quantile(data$x, .75), 2),
+        `90%` = nice_num(quantile(data$x, .9), 2),
+        `95%` = nice_num(quantile(data$x, .95), 2),
+        `97.5%` = nice_num(quantile(data$x, .975), 2),
+        Max = nice_num(max(data$x), 2)
+      )
+
+    hdi_length <- length(tidybayes::hdi(data$x, input$summary_range_number / 100))
+
+    if(hdi_length == 2) {
+      distribution_values$custom_data_hdis[[custom_target]] <- tibble(HDI = glue::glue("{input$summary_range_number}%"),
+                                                                    `Bound 1` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[1], 2),
+                                                                    `Bound 2` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[2], 2))
+    }
+    else if(hdi_length == 4) {
+      distribution_values$custom_data_hdis[[custom_target]] <- tibble(`Bnd 1` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[1], 2),
+                                                                    `Bnd 2` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[3], 2),
+                                                                    `Bnd 3` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[2], 2),
+                                                                    `Bnd 4` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[4], 2))
+    }
+    else if(hdi_length == 6) {
+      distribution_values$custom_data_hdis[[custom_target]] <- tibble(`Bnd 1` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[1], 2),
+                                                                    `Bnd 2` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[4], 2),
+                                                                    `Bnd 3` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[2], 2),
+                                                                    `Bnd 4` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[5], 2),
+                                                                    `Bnd 5` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[3], 2),
+                                                                    `Bnd 6` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[6], 2))
+    }
+    else if(hdi_length == 8) {
+      distribution_values$custom_data_hdis[[custom_target]] <- tibble(`Bnd 1` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[1], 2),
+                                                                    `Bnd 2` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[5], 2),
+                                                                    `Bnd 3` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[2], 2),
+                                                                    `Bnd 4` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[6], 2),
+                                                                    `Bnd 5` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[3], 2),
+                                                                    `Bnd 6` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[7], 2),
+                                                                    `Bnd 7` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[4], 2),
+                                                                    `Bnd 8` = round(tidybayes::hdi(data$x, input$summary_range_number / 100)[8], 2))
+    }
+
+    distribution_values$data_5000[[custom_target]] <-
+      if(nrow(data) > 5000) {
+        sample_n(data, 5000) %>% mutate(y = 0 + runif(5000, -.5, .5))
+      }
+    else if(nrow(data) < 5000) {
+      data %>% mutate(y = 0 + runif(nrow(data), -.5, .5))
+    }
+    else {
+      data %>% mutate(y = 0 + runif(5000, -.5, .5))
+    }
+
+    distribution_values$data_density[[custom_target]] <-
+      if(nrow(data) > 100000) {
+        sample_n(data, 100000)
+      }
+    else {
+      data
+    }
+
+    #code_text_value(glue::glue("This is a custom distribution"))
+
+  }
+
+  ##### observe event for input$upload_custom_proper #####
+  observeEvent(input$upload_custom_proper, {
+
+    # check if it's a csv, if not, then show a modal message that it needs to be a csv
+    if (tools::file_ext(input$upload_custom_proper$name) != "csv") {
+      showModal(modalDialog(
+        title = "Invalid file type",
+        "That doesn't appear to be a .csv file. Please only upload .csv file types.",
+        easyClose = TRUE
+      ))
+    }
+
+    # if it is a csv then...
+    else {
+
+      # read in the data as a tibble
+      my_custom_data <-
+        as_tibble(read_csv(input$upload_custom_proper$datapath)) %>%
+        select(where(is.numeric))
+
+      if (ncol(my_custom_data) == 0) {
+        showModal(modalDialog(
+          title = "Invalid columns in your csv",
+          "It looks like you've uploaded a csv, but we haven't detected purely numeric columns in it. Make sure that all the columns are numeric - this includes not having missing values written as NA, for example.",
+          easyClose = TRUE
+        ))
+        return()
+      }
+
+      # find out how many custom distributions there are currently
+      current_custom <-
+        if(length(distribution_values$distribution_list) == 1) {
+          0
+        }
+      # stop if you've gotten to this point and there are 15
+      else if(length(distribution_values$distribution_list$Custom) == 15) {
+        showModal(modalDialog(
+          title = "Max distributions reached",
+          "You already have 15 custom distributions - you'll have to remove some in order to add other ones.",
+          easyClose = TRUE
+        ))
+        return()
+      }
+        else {
+          length(distribution_values$distribution_list$Custom)
+        }
+
+      # the most columns we can take from the new data is 15 - how many we already have
+        max_take <- 15 - current_custom
+
+        # how many new columns are available to take in the uploaded data?
+        new_max <- ncol(my_custom_data)
+
+        # assess whether we need to reduce the amount of data we're going to bring in
+        my_custom_data <-
+          # if it's less columns than we can add, we just take the whole lot
+          if(new_max <= max_take) {
+            my_custom_data
+          }
+        # otherwise we have to reduce the number of columns we're going to take
+        else {
+          my_custom_data[ , 1:max_take]
+        }
+
+        # now we want to update the names of the distributions
+        if(current_custom == 0) {
+          # we just stick all the names in if there aren't any custom distributions yet
+          distribution_values$distribution_list$Custom <- names(my_custom_data)
+        }
+        else {
+
+          # otherwise, we check if any of the names are replicated and append '_uniq' to them if so,
+          # to make them unique
+          if(sum(names(my_custom_data) %in% distribution_values$distribution_list$Custom) >= 1) {
+            target_mod <- which(names(my_custom_data) %in%  distribution_values$distribution_list$Custom)
+            names(my_custom_data)[target_mod] <- paste0(names(my_custom_data)[target_mod], "_uniq")
+          }
+
+          # then we update the names
+          distribution_values$distribution_list$Custom <- c(distribution_values$distribution_list$Custom, names(my_custom_data))
+
+        }
+
+        # now we want to store the actual data somewhere useful:
+        starting_point <- current_custom + 1
+
+        import_custom_data <- function(import_column, custom_target) {
+          distribution_values$custom_data[[custom_target]] <- my_custom_data[, import_column] %>% rename(x = 1)
+        }
+
+        map2(.x = 1:ncol(my_custom_data),
+             .y = starting_point:(starting_point + ncol(my_custom_data) - 1),
+             .f = import_custom_data)
+
+        map(.x = starting_point:(starting_point + ncol(my_custom_data) - 1),
+            .f = update_custom_summary)
+
+      removeModal()
+
+    }
+
+  })
+
+  observeEvent(input$distribution_choice, {
+    should_render_ui(TRUE)
+  })
 
   #### Download section ####
   ##### download reactive values #####
@@ -740,7 +1182,8 @@ server <- function(input, output) {
     clear_sample_button_status = TRUE,
     store_sample_button_status = FALSE,
     my_stored_data = "Empty",
-    column_select_choices = "New column"
+    column_select_choices = "New column",
+    custom_column_name = "Default"
   )
 
   new_col_name <- function() {
@@ -775,6 +1218,30 @@ server <- function(input, output) {
   }
 
   ##### Event handling for download buttons #####
+  clean_column_name <- function(name) {
+    name %>%
+      iconv(from = "UTF-8", to = "ASCII//TRANSLIT") %>%  # Remove accents and diacritics
+      gsub("[ -]", "_", .) %>%  # Replace spaces and hyphens with underscores
+      gsub("[^a-zA-Z0-9_.]", "", .) %>%  # Remove characters that are not letters, numbers, dots or underscores
+      gsub("__+", "_", .) %>%  # Replace consecutive underscores with a single underscore
+      gsub("\\.\\.+",".", .) %>%  # Replace consecutive dots with a single dot
+      gsub("^[^a-zA-Z]+", "", .)  %>% # Remove leading numbers and special characters
+      gsub("^_+", "", .) %>% # Remove leading underscores
+      tolower()  # Convert to lowercase
+  }
+
+  # make sure we don't store a custom distribution in the csv again
+  observeEvent(input$distribution_choice, {
+
+    if(!input$distribution_choice %in% c("Beta", "Beta as %", "Normal", "Skew normal", "Exponential", "Log-normal", "Student's t", "Uniform")) {
+      download_info$store_sample_button_status = TRUE
+    }
+    else if(download_info$column_count < 10) {
+      download_info$store_sample_button_status = FALSE
+    }
+
+  })
+
   observeEvent(input$store_sample, {
 
     text_version_data <-
@@ -803,53 +1270,169 @@ server <- function(input, output) {
       "uniform"
     }
 
-    #shinyjs::delay(ms = 200,
-    if(input$select_column == "New column") {
+    if(input$name_sample %in% c("Default", "New column") | is.na(input$name_sample) | is.null(input$name_sample)) {
 
-      if(download_info$column_count == 0) {
-        download_info$my_stored_data <-
-          tibble(!!new_col_name() := eval(parse(text = glue::glue("{text_version_data}_data$data$x[1:10000]"))))
-        download_info$column_count <-
-          ncol(download_info$my_stored_data)
-        download_info$column_select_choices <-
-          c(names(download_info$my_stored_data), "New column")
-      }
-      else if(download_info$column_count > 0 & download_info$column_count < 9) {
-        download_info$my_stored_data <-
-          download_info$my_stored_data %>%
-          mutate(!!new_col_name() := eval(parse(text = glue::glue("{text_version_data}_data$data$x[1:10000]"))))
-        download_info$column_count <-
-          ncol(download_info$my_stored_data)
-        download_info$column_select_choices <-
-          c(names(download_info$my_stored_data), "New column")
+      new_column_name <- new_col_name()
+
+      if(input$select_column == "New column") {
+
+        if(new_column_name %in% names(download_info$my_stored_data)) {
+          new_column_name <- glue::glue("{new_column_name}_{paste0(sample(letters, 4, replace = TRUE), collapse = '')}")
+        }
+
+        if(download_info$column_count == 0) {
+
+          download_info$my_stored_data <-
+            tibble(!!new_column_name := eval(parse(text = glue::glue("{text_version_data}_data$data$x[1:10000]"))))
+          download_info$column_count <-
+            ncol(download_info$my_stored_data)
+
+          download_info$column_select_choices <-
+            c(names(download_info$my_stored_data), "New column")
+        }
+        else if(download_info$column_count > 0 & download_info$column_count < 9) {
+
+          download_info$my_stored_data <-
+            download_info$my_stored_data %>%
+            mutate(!!new_column_name := eval(parse(text = glue::glue("{text_version_data}_data$data$x[1:10000]"))))
+          download_info$column_count <-
+            ncol(download_info$my_stored_data)
+
+          download_info$column_select_choices <-
+            c(names(download_info$my_stored_data), "New column")
+        }
+        else {
+
+          download_info$my_stored_data <-
+            download_info$my_stored_data %>%
+            mutate(!!new_column_name := eval(parse(text = glue::glue("{text_version_data}_data$data$x[1:10000]"))))
+          download_info$column_count <-
+            ncol(download_info$my_stored_data)
+
+          download_info$column_select_choices <-
+            names(download_info$my_stored_data)
+        }
       }
       else {
+
+        current_names <- names(download_info$my_stored_data)[-which(names(download_info$my_stored_data) == input$select_column)]
+
+        if(new_column_name %in% current_names) {
+          new_column_name <- glue::glue("{new_column_name}_{paste0(sample(letters, 4, replace = TRUE), collapse = '')}")
+        }
+
         download_info$my_stored_data <-
           download_info$my_stored_data %>%
-          mutate(!!new_col_name() := eval(parse(text = glue::glue("{text_version_data}_data$data$x[1:10000]"))))
-        download_info$column_count <-
-          ncol(download_info$my_stored_data)
-        download_info$column_select_choices <-
-          names(download_info$my_stored_data)
+          mutate(!!input$select_column := eval(parse(text = glue::glue("{text_version_data}_data$data$x[1:10000]")))) %>%
+          rename(!!new_column_name := !!input$select_column)
+
+        if(download_info$column_count == 10) {
+          download_info$column_select_choices <-
+            names(download_info$my_stored_data)
+        }
+        else {
+          download_info$column_select_choices <-
+            c(names(download_info$my_stored_data), "New column")
+        }
+
       }
+
+      if(download_info$column_count > 0) {
+        download_info$download_button_status <- FALSE
+      }
+
+      if(download_info$column_count == 10) {
+        #download_info$store_sample_button_status <- TRUE
+        download_info$clear_sample_button_status <- FALSE
+      }
+
     }
+
     else {
-      target_column <- which(names(download_info$my_stored_data) == download_info$column_select_choices)
-      download_info$my_stored_data <-
-        download_info$my_stored_data %>%
-        mutate(!!target_column := eval(parse(text = glue::glue("{text_version_data}_data$data$x[1:10000]")))) %>%
-        rename(!!new_col_name() := !!target_column)
-    }
 
-    if(download_info$column_count > 0) {
-      download_info$download_button_status <- FALSE
-    }
+      custom_new_name <- clean_column_name(input$name_sample)
 
-    if(download_info$column_count == 10) {
-      download_info$store_sample_button_status <- TRUE
-      download_info$clear_sample_button_status <- FALSE
+      if(input$select_column == "New column") {
+
+        if(custom_new_name %in% names(download_info$my_stored_data)) {
+          custom_new_name <- glue::glue("{custom_new_name}_{paste0(sample(letters, 4, replace = TRUE), collapse = '')}")
+        }
+
+        if(download_info$column_count == 0) {
+
+          download_info$my_stored_data <-
+            tibble(!!custom_new_name := eval(parse(text = glue::glue("{text_version_data}_data$data$x[1:10000]"))))
+          download_info$column_count <-
+            ncol(download_info$my_stored_data)
+
+          download_info$column_select_choices <-
+            c(names(download_info$my_stored_data), "New column")
+          download_info$custom_column_name <- "Default"
+          updateTextInput(session, "name_sample", value = "Default")
+        }
+        else if(download_info$column_count > 0 & download_info$column_count < 9) {
+
+          download_info$my_stored_data <-
+            download_info$my_stored_data %>%
+            mutate(!!custom_new_name := eval(parse(text = glue::glue("{text_version_data}_data$data$x[1:10000]"))))
+          download_info$column_count <-
+            ncol(download_info$my_stored_data)
+
+          download_info$column_select_choices <-
+            c(names(download_info$my_stored_data), "New column")
+          download_info$custom_column_name <- "Default"
+          updateTextInput(session, "name_sample", value = "Default")
+        }
+        else {
+
+          download_info$my_stored_data <-
+            download_info$my_stored_data %>%
+            mutate(!!custom_new_name := eval(parse(text = glue::glue("{text_version_data}_data$data$x[1:10000]"))))
+          download_info$column_count <-
+            ncol(download_info$my_stored_data)
+
+          download_info$column_select_choices <-
+            names(download_info$my_stored_data)
+          download_info$custom_column_name <- "Default"
+          updateTextInput(session, "name_sample", value = "Default")
+        }
+      }
+      else {
+
+        current_names <- names(download_info$my_stored_data)[-which(names(download_info$my_stored_data) == input$select_column)]
+
+        if(custom_new_name %in% current_names) {
+          custom_new_name <- glue::glue("{custom_new_name}_{paste0(sample(letters, 4, replace = TRUE), collapse = '')}")
+        }
+
+        download_info$my_stored_data <-
+          download_info$my_stored_data %>%
+          mutate(!!input$select_column := eval(parse(text = glue::glue("{text_version_data}_data$data$x[1:10000]")))) %>%
+          rename(!!custom_new_name := !!input$select_column)
+
+        if(download_info$column_count == 10) {
+          download_info$column_select_choices <-
+            names(download_info$my_stored_data)
+        }
+        else {
+          download_info$column_select_choices <-
+            c(names(download_info$my_stored_data), "New column")
+        }
+
+        download_info$custom_column_name <- "Default"
+        updateTextInput(session, "name_sample", value = "Default")
+      }
+
+      if(download_info$column_count > 0) {
+        download_info$download_button_status <- FALSE
+      }
+
+      if(download_info$column_count == 10) {
+        #download_info$store_sample_button_status <- TRUE
+        download_info$clear_sample_button_status <- FALSE
+      }
+
     }
-    #)
 
   })
 
@@ -874,6 +1457,7 @@ server <- function(input, output) {
         ncol(download_info$my_stored_data)
       download_info$column_select_choices <-
         c(names(download_info$my_stored_data), "New column")
+      download_info$store_sample_button_status <- FALSE
     }
 
     if(download_info$column_count <= 1) {
@@ -897,6 +1481,16 @@ server <- function(input, output) {
                   "Store in/clear column...:",
                   choices = download_info$column_select_choices,
                   selected = download_info$column_select_choices[length(download_info$column_select_choices)])
+
+    })
+
+  ##### name_sample download #####
+  output$name_sample_ui <-
+    renderUI({
+
+      textInput("name_sample",
+                "Name column:",
+                value = download_info$custom_column_name)
 
     })
 
@@ -946,27 +1540,62 @@ server <- function(input, output) {
     renderUI({
 
       if(download_info$download_button_status == TRUE) {
-        disabled(downloadButton("download_button",
-                                "Download csv",
-                                style="color: #ffffff; background-color: #2f6e8d; border-color: #2f6e8d"))
+        disabled(actionButton("download_button",
+                              "Download csv",
+                              style="color: #ffffff; background-color: #2f6e8d; border-color: #2f6e8d"))
       }
       else if(download_info$download_button_status == FALSE) {
-        downloadButton("download_button",
-                       "Download csv",
-                       style="color: #ffffff; background-color: #2f6e8d; border-color: #2f6e8d")
+        actionButton("download_button",
+                     "Download csv",
+                     style="color: #ffffff; background-color: #2f6e8d; border-color: #2f6e8d")
       }
 
     })
 
-  output$download_button <- downloadHandler(
+  observeEvent(input$download_button, {
+    showModal(modalDialog(
+      easyClose = TRUE,
+      title = "Download your csv...",
+      fluidRow(column(12,
+                      align = "center",
+                      textInput("download_name",
+                                "Name your csv file:"),
+                      downloadButton("final_download_button",
+                                     "Download csv",
+                                     style="color: #ffffff; background-color: #2f6e8d; border-color: #2f6e8d"))),
+      footer = tagList(
+        modalButton("Cancel")
+      )
+    ))
+  })
+
+
+  output$final_download_button <- downloadHandler(
     # Provide a filename for the download (can be a reactive expression)
+
     filename = function() {
-      paste("data-", Sys.Date(), ".csv", sep = "")
+      if(is.na(input$download_name) | is.null(input$download_name) | input$download_name == "") {
+        paste("distributr_data_", Sys.Date(), ".csv", sep = "")
+      }
+      else {
+
+        clean_file_name <- function(name) {
+          name <- sub("\\.csv$", "", name, ignore.case = TRUE)
+          name %>%
+            gsub("[\\/\\:*?\"<>|]", "_", .) %>%
+            gsub("^[[:space:]]+|[[:space:]]+$", "", .) %>%
+            tolower()
+        }
+
+        paste(clean_file_name(input$download_name), ".csv", sep = "")
+      }
+
     },
 
     # The content function writes the content of the file
     content = function(file) {
       write.csv(download_info$my_stored_data, file, row.names = FALSE)
+      removeModal()
     },
 
     # The default content type is 'text/csv'
@@ -1024,7 +1653,8 @@ server <- function(input, output) {
                      Mode = "...",
                      `Lower ETI` = "...",
                      `Upper ETI` = "..."),
-    quantiles = tibble(`2.5%` = "...",
+    quantiles = tibble(Min = "...",
+                       `2.5%` = "...",
                        `5%` = "...",
                        `10%` = "...",
                        `25%` = "...",
@@ -1032,7 +1662,8 @@ server <- function(input, output) {
                        `75%` = "...",
                        `90%` = "...",
                        `95%` = "...",
-                       `97.5%` = "..."),
+                       `97.5%` = "...",
+                       Max = "..."),
     hdi = tibble(HDI = "95%",
                  `Bound 1` = "...",
                  `Bound 2` = "..."),
@@ -1048,15 +1679,17 @@ server <- function(input, output) {
                      Mode = "...",
                      `Lower ETI` = "...",
                      `Upper ETI` = "..."),
-    quantiles = tibble(`5%` = "...",
+    quantiles = tibble(Min = "...",
+                       `2.5%` = "...",
+                       `5%` = "...",
                        `10%` = "...",
-                       `20%` = "...",
-                       `30%` = "...",
+                       `25%` = "...",
                        `50%` = "...",
-                       `70%` = "...",
-                       `80%` = "...",
+                       `75%` = "...",
                        `90%` = "...",
-                       `95%` = "..."),
+                       `95%` = "...",
+                       `97.5%` = "...",
+                       Max = "..."),
     hdi = tibble(HDI = "95%",
                  `Bound 1` = "...",
                  `Bound 2` = "..."),
@@ -1072,15 +1705,17 @@ server <- function(input, output) {
                      Mode = "...",
                      `Lower ETI` = "...",
                      `Upper ETI` = "..."),
-    quantiles = tibble(`5%` = "...",
+    quantiles = tibble(Min = "...",
+                       `2.5%` = "...",
+                       `5%` = "...",
                        `10%` = "...",
-                       `20%` = "...",
-                       `30%` = "...",
+                       `25%` = "...",
                        `50%` = "...",
-                       `70%` = "...",
-                       `80%` = "...",
+                       `75%` = "...",
                        `90%` = "...",
-                       `95%` = "..."),
+                       `95%` = "...",
+                       `97.5%` = "...",
+                       Max = "..."),
     hdi = tibble(HDI = "95%",
                  `Bound 1` = "...",
                  `Bound 2` = "..."),
@@ -1096,15 +1731,17 @@ server <- function(input, output) {
                      Mode = "...",
                      `Lower ETI` = "...",
                      `Upper ETI` = "..."),
-    quantiles = tibble(`5%` = "...",
+    quantiles = tibble(Min = "...",
+                       `2.5%` = "...",
+                       `5%` = "...",
                        `10%` = "...",
-                       `20%` = "...",
-                       `30%` = "...",
+                       `25%` = "...",
                        `50%` = "...",
-                       `70%` = "...",
-                       `80%` = "...",
+                       `75%` = "...",
                        `90%` = "...",
-                       `95%` = "..."),
+                       `95%` = "...",
+                       `97.5%` = "...",
+                       Max = "..."),
     hdi = tibble(HDI = "95%",
                  `Bound 1` = "...",
                  `Bound 2` = "..."),
@@ -1120,15 +1757,17 @@ server <- function(input, output) {
                      Mode = "...",
                      `Lower ETI` = "...",
                      `Upper ETI` = "..."),
-    quantiles = tibble(`5%` = "...",
+    quantiles = tibble(Min = "...",
+                       `2.5%` = "...",
+                       `5%` = "...",
                        `10%` = "...",
-                       `20%` = "...",
-                       `30%` = "...",
+                       `25%` = "...",
                        `50%` = "...",
-                       `70%` = "...",
-                       `80%` = "...",
+                       `75%` = "...",
                        `90%` = "...",
-                       `95%` = "..."),
+                       `95%` = "...",
+                       `97.5%` = "...",
+                       Max = "..."),
     hdi = tibble(HDI = "95%",
                  `Bound 1` = "...",
                  `Bound 2` = "..."),
@@ -1144,15 +1783,17 @@ server <- function(input, output) {
                      Mode = "...",
                      `Lower ETI` = "...",
                      `Upper ETI` = "..."),
-    quantiles = tibble(`5%` = "...",
+    quantiles = tibble(Min = "...",
+                       `2.5%` = "...",
+                       `5%` = "...",
                        `10%` = "...",
-                       `20%` = "...",
-                       `30%` = "...",
+                       `25%` = "...",
                        `50%` = "...",
-                       `70%` = "...",
-                       `80%` = "...",
+                       `75%` = "...",
                        `90%` = "...",
-                       `95%` = "..."),
+                       `95%` = "...",
+                       `97.5%` = "...",
+                       Max = "..."),
     hdi = tibble(HDI = "95%",
                  `Bound 1` = "...",
                  `Bound 2` = "..."),
@@ -1168,15 +1809,17 @@ server <- function(input, output) {
                      Mode = "...",
                      `Lower ETI` = "...",
                      `Upper ETI` = "..."),
-    quantiles = tibble(`5%` = "...",
+    quantiles = tibble(Min = "...",
+                       `2.5%` = "...",
+                       `5%` = "...",
                        `10%` = "...",
-                       `20%` = "...",
-                       `30%` = "...",
+                       `25%` = "...",
                        `50%` = "...",
-                       `70%` = "...",
-                       `80%` = "...",
+                       `75%` = "...",
                        `90%` = "...",
-                       `95%` = "..."),
+                       `95%` = "...",
+                       `97.5%` = "...",
+                       Max = "..."),
     hdi = tibble(HDI = "95%",
                  `Bound 1` = "...",
                  `Bound 2` = "..."),
@@ -1192,15 +1835,17 @@ server <- function(input, output) {
                      Mode = "...",
                      `Lower ETI` = "...",
                      `Upper ETI` = "..."),
-    quantiles = tibble(`5%` = "...",
+    quantiles = tibble(Min = "...",
+                       `2.5%` = "...",
+                       `5%` = "...",
                        `10%` = "...",
-                       `20%` = "...",
-                       `30%` = "...",
+                       `25%` = "...",
                        `50%` = "...",
-                       `70%` = "...",
-                       `80%` = "...",
+                       `75%` = "...",
                        `90%` = "...",
-                       `95%` = "..."),
+                       `95%` = "...",
+                       `97.5%` = "...",
+                       Max = "..."),
     hdi = tibble(HDI = "Uniform",
                  `Bound 1` = "Uniform",
                  `Bound 2` = "Uniform"),
@@ -1237,18 +1882,22 @@ server <- function(input, output) {
       updated_data <- tibble(x = rprop(500000, input$beta_precision, input$beta_mean))
       beta_data$data <- updated_data
 
-      code_text_value(glue::glue("extraDistr::rprop(1000, {input$beta_precision}, {input$beta_mean})"))
+      # code_text_value(glue::glue("extraDistr::rprop(n, {input$beta_precision}, {input$beta_mean})"))
 
       beta_data$quantiles <-
-        tibble(`2.5%` = round(quantile(updated_data$x, .025), 2),
-               `5%` =  round(quantile(updated_data$x, .05), 2),
-               `10%` = round(quantile(updated_data$x, .1), 2),
-               `25%` = round(quantile(updated_data$x, .25), 2),
-               `50%` = round(quantile(updated_data$x, .5), 2),
-               `75%` = round(quantile(updated_data$x, .75), 2),
-               `90%` = round(quantile(updated_data$x, .9), 2),
-               `95%` = round(quantile(updated_data$x, .95), 2),
-               `97.5%` = round(quantile(updated_data$x, .975), 2))
+        tibble(
+          Min = round(min(updated_data$x), 2),
+          `2.5%` = round(quantile(updated_data$x, .025), 2),
+          `5%` =  round(quantile(updated_data$x, .05), 2),
+          `10%` = round(quantile(updated_data$x, .1), 2),
+          `25%` = round(quantile(updated_data$x, .25), 2),
+          `50%` = round(quantile(updated_data$x, .5), 2),
+          `75%` = round(quantile(updated_data$x, .75), 2),
+          `90%` = round(quantile(updated_data$x, .9), 2),
+          `95%` = round(quantile(updated_data$x, .95), 2),
+          `97.5%` = round(quantile(updated_data$x, .975), 2),
+          Max = round(max(updated_data$x), 2)
+        )
 
       hdi_length <- length(tidybayes::hdi(updated_data$x, input$summary_range_number / 100))
 
@@ -1324,18 +1973,22 @@ server <- function(input, output) {
       updated_data <- tibble(x = rprop(500000, input$betapercent_precision, input$betapercent_mean / 100) * 100)
       betapercent_data$data <- updated_data
 
-      code_text_value(glue::glue("extraDistr::rprop(1000, {input$betapercent_precision}, {input$betapercent_mean} / 100) * 100"))
+      # code_text_value(glue::glue("extraDistr::rprop(1000, {input$betapercent_precision}, {input$betapercent_mean} / 100) * 100"))
 
       betapercent_data$quantiles <-
-        tibble(`2.5%` = round(quantile(updated_data$x, .025), 2),
-               `5%` =  round(quantile(updated_data$x, .05), 2),
-               `10%` = round(quantile(updated_data$x, .1), 2),
-               `25%` = round(quantile(updated_data$x, .25), 2),
-               `50%` = round(quantile(updated_data$x, .5), 2),
-               `75%` = round(quantile(updated_data$x, .75), 2),
-               `90%` = round(quantile(updated_data$x, .9), 2),
-               `95%` = round(quantile(updated_data$x, .95), 2),
-               `97.5%` = round(quantile(updated_data$x, .975), 2))
+        tibble(
+          Min = round(min(updated_data$x), 2),
+          `2.5%` = round(quantile(updated_data$x, .025), 2),
+          `5%` =  round(quantile(updated_data$x, .05), 2),
+          `10%` = round(quantile(updated_data$x, .1), 2),
+          `25%` = round(quantile(updated_data$x, .25), 2),
+          `50%` = round(quantile(updated_data$x, .5), 2),
+          `75%` = round(quantile(updated_data$x, .75), 2),
+          `90%` = round(quantile(updated_data$x, .9), 2),
+          `95%` = round(quantile(updated_data$x, .95), 2),
+          `97.5%` = round(quantile(updated_data$x, .975), 2),
+          Max = round(max(updated_data$x), 2)
+        )
 
       hdi_length <- length(tidybayes::hdi(updated_data$x, input$summary_range_number / 100))
 
@@ -1409,18 +2062,22 @@ server <- function(input, output) {
       updated_data <- tibble(x = rnorm(500000, input$normal_mean, input$normal_sd))
       normal_data$data <- updated_data
 
-      code_text_value(glue::glue("rnorm(1000, {input$normal_mean}, {input$normal_sd})"))
+      # code_text_value(glue::glue("rnorm(1000, {input$normal_mean}, {input$normal_sd})"))
 
       normal_data$quantiles <-
-        tibble(`2.5%` = round(quantile(updated_data$x, .025), 2),
-               `5%` =  round(quantile(updated_data$x, .05), 2),
-               `10%` = round(quantile(updated_data$x, .1), 2),
-               `25%` = round(quantile(updated_data$x, .25), 2),
-               `50%` = round(quantile(updated_data$x, .5), 2),
-               `75%` = round(quantile(updated_data$x, .75), 2),
-               `90%` = round(quantile(updated_data$x, .9), 2),
-               `95%` = round(quantile(updated_data$x, .95), 2),
-               `97.5%` = round(quantile(updated_data$x, .975), 2))
+        tibble(
+          Min = round(min(updated_data$x), 2),
+          `2.5%` = round(quantile(updated_data$x, .025), 2),
+          `5%` =  round(quantile(updated_data$x, .05), 2),
+          `10%` = round(quantile(updated_data$x, .1), 2),
+          `25%` = round(quantile(updated_data$x, .25), 2),
+          `50%` = round(quantile(updated_data$x, .5), 2),
+          `75%` = round(quantile(updated_data$x, .75), 2),
+          `90%` = round(quantile(updated_data$x, .9), 2),
+          `95%` = round(quantile(updated_data$x, .95), 2),
+          `97.5%` = round(quantile(updated_data$x, .975), 2),
+          Max = round(max(updated_data$x), 2)
+        )
 
       hdi_length <- length(tidybayes::hdi(updated_data$x, input$summary_range_number / 100))
 
@@ -1495,18 +2152,22 @@ server <- function(input, output) {
       updated_data <- tibble(x = rsn(500000, input$skewnormal_location, input$skewnormal_scale, input$skewnormal_slant))
       skewnormal_data$data <- updated_data
 
-      code_text_value(glue::glue("sn::rsn(1000, {input$skewnormal_location}, {input$skewnormal_scale}, {input$skewnormal_slant})"))
+      # code_text_value(glue::glue("sn::rsn(1000, {input$skewnormal_location}, {input$skewnormal_scale}, {input$skewnormal_slant})"))
 
       skewnormal_data$quantiles <-
-        tibble(`2.5%` = round(quantile(updated_data$x, .025), 2),
-               `5%` =  round(quantile(updated_data$x, .05), 2),
-               `10%` = round(quantile(updated_data$x, .1), 2),
-               `25%` = round(quantile(updated_data$x, .25), 2),
-               `50%` = round(quantile(updated_data$x, .5), 2),
-               `75%` = round(quantile(updated_data$x, .75), 2),
-               `90%` = round(quantile(updated_data$x, .9), 2),
-               `95%` = round(quantile(updated_data$x, .95), 2),
-               `97.5%` = round(quantile(updated_data$x, .975), 2))
+        tibble(
+          Min = round(min(updated_data$x), 2),
+          `2.5%` = round(quantile(updated_data$x, .025), 2),
+          `5%` =  round(quantile(updated_data$x, .05), 2),
+          `10%` = round(quantile(updated_data$x, .1), 2),
+          `25%` = round(quantile(updated_data$x, .25), 2),
+          `50%` = round(quantile(updated_data$x, .5), 2),
+          `75%` = round(quantile(updated_data$x, .75), 2),
+          `90%` = round(quantile(updated_data$x, .9), 2),
+          `95%` = round(quantile(updated_data$x, .95), 2),
+          `97.5%` = round(quantile(updated_data$x, .975), 2),
+          Max = round(max(updated_data$x), 2)
+        )
 
       hdi_length <- length(tidybayes::hdi(updated_data$x, input$summary_range_number / 100))
 
@@ -1579,18 +2240,22 @@ server <- function(input, output) {
       updated_data <- tibble(x = rexp(500000, input$exp_rate))
       exp_data$data <- updated_data
 
-      code_text_value(glue::glue("rexp(1000, {input$exp_rate})"))
+      # code_text_value(glue::glue("rexp(1000, {input$exp_rate})"))
 
       exp_data$quantiles <-
-        tibble(`2.5%` = round(quantile(updated_data$x, .025), 2),
-               `5%` =  round(quantile(updated_data$x, .05), 2),
-               `10%` = round(quantile(updated_data$x, .1), 2),
-               `25%` = round(quantile(updated_data$x, .25), 2),
-               `50%` = round(quantile(updated_data$x, .5), 2),
-               `75%` = round(quantile(updated_data$x, .75), 2),
-               `90%` = round(quantile(updated_data$x, .9), 2),
-               `95%` = round(quantile(updated_data$x, .95), 2),
-               `97.5%` = round(quantile(updated_data$x, .975), 2))
+        tibble(
+          Min = round(min(updated_data$x), 2),
+          `2.5%` = round(quantile(updated_data$x, .025), 2),
+          `5%` =  round(quantile(updated_data$x, .05), 2),
+          `10%` = round(quantile(updated_data$x, .1), 2),
+          `25%` = round(quantile(updated_data$x, .25), 2),
+          `50%` = round(quantile(updated_data$x, .5), 2),
+          `75%` = round(quantile(updated_data$x, .75), 2),
+          `90%` = round(quantile(updated_data$x, .9), 2),
+          `95%` = round(quantile(updated_data$x, .95), 2),
+          `97.5%` = round(quantile(updated_data$x, .975), 2),
+          Max = round(max(updated_data$x), 2)
+        )
 
       hdi_length <- length(tidybayes::hdi(updated_data$x, input$summary_range_number / 100))
 
@@ -1665,18 +2330,22 @@ server <- function(input, output) {
       updated_data <- tibble(x = rlnorm(500000, input$lognormal_mean, input$lognormal_sd))
       lognormal_data$data <- updated_data
 
-      code_text_value(glue::glue("rlnorm(1000, {input$lognormal_mean}, {input$lognormal_sd})"))
+      # code_text_value(glue::glue("rlnorm(1000, {input$lognormal_mean}, {input$lognormal_sd})"))
 
       lognormal_data$quantiles <-
-        tibble(`2.5%` = round(quantile(updated_data$x, .025), 2),
-               `5%` =  round(quantile(updated_data$x, .05), 2),
-               `10%` = round(quantile(updated_data$x, .1), 2),
-               `25%` = round(quantile(updated_data$x, .25), 2),
-               `50%` = round(quantile(updated_data$x, .5), 2),
-               `75%` = round(quantile(updated_data$x, .75), 2),
-               `90%` = round(quantile(updated_data$x, .9), 2),
-               `95%` = round(quantile(updated_data$x, .95), 2),
-               `97.5%` = round(quantile(updated_data$x, .975), 2))
+        tibble(
+          Min = round(min(updated_data$x), 2),
+          `2.5%` = round(quantile(updated_data$x, .025), 2),
+          `5%` =  round(quantile(updated_data$x, .05), 2),
+          `10%` = round(quantile(updated_data$x, .1), 2),
+          `25%` = round(quantile(updated_data$x, .25), 2),
+          `50%` = round(quantile(updated_data$x, .5), 2),
+          `75%` = round(quantile(updated_data$x, .75), 2),
+          `90%` = round(quantile(updated_data$x, .9), 2),
+          `95%` = round(quantile(updated_data$x, .95), 2),
+          `97.5%` = round(quantile(updated_data$x, .975), 2),
+          Max = round(max(updated_data$x), 2)
+        )
 
       hdi_length <- length(tidybayes::hdi(updated_data$x, input$summary_range_number / 100))
 
@@ -1751,18 +2420,22 @@ server <- function(input, output) {
       updated_data <- tibble(x = rst(500000, input$t_df, input$t_location, input$t_scale))
       t_data$data <- updated_data
 
-      code_text_value(glue::glue("stevemisc::rst(1000, {input$t_df}, {input$t_location}, {input$t_scale})"))
+      # code_text_value(glue::glue("stevemisc::rst(1000, {input$t_df}, {input$t_location}, {input$t_scale})"))
 
       t_data$quantiles <-
-        tibble(`2.5%` = round(quantile(updated_data$x, .025), 2),
-               `5%` =  round(quantile(updated_data$x, .05), 2),
-               `10%` = round(quantile(updated_data$x, .1), 2),
-               `25%` = round(quantile(updated_data$x, .25), 2),
-               `50%` = round(quantile(updated_data$x, .5), 2),
-               `75%` = round(quantile(updated_data$x, .75), 2),
-               `90%` = round(quantile(updated_data$x, .9), 2),
-               `95%` = round(quantile(updated_data$x, .95), 2),
-               `97.5%` = round(quantile(updated_data$x, .975), 2))
+        tibble(
+          Min = round(min(updated_data$x), 2),
+          `2.5%` = round(quantile(updated_data$x, .025), 2),
+          `5%` =  round(quantile(updated_data$x, .05), 2),
+          `10%` = round(quantile(updated_data$x, .1), 2),
+          `25%` = round(quantile(updated_data$x, .25), 2),
+          `50%` = round(quantile(updated_data$x, .5), 2),
+          `75%` = round(quantile(updated_data$x, .75), 2),
+          `90%` = round(quantile(updated_data$x, .9), 2),
+          `95%` = round(quantile(updated_data$x, .95), 2),
+          `97.5%` = round(quantile(updated_data$x, .975), 2),
+          Max = round(max(updated_data$x), 2)
+        )
 
       hdi_length <- length(tidybayes::hdi(updated_data$x, input$summary_range_number / 100))
 
@@ -1836,52 +2509,22 @@ server <- function(input, output) {
       updated_data <- tibble(x = runif(500000, input$uniform_min, input$uniform_max))
       uniform_data$data <- updated_data
 
-      code_text_value(glue::glue("runif(1000, {input$uniform_min}, {input$uniform_max})"))
+      # code_text_value(glue::glue("runif(1000, {input$uniform_min}, {input$uniform_max})"))
 
       uniform_data$quantiles <-
-        tibble(`2.5%` = round(quantile(updated_data$x, .025), 2),
-               `5%` =  round(quantile(updated_data$x, .05), 2),
-               `10%` = round(quantile(updated_data$x, .1), 2),
-               `25%` = round(quantile(updated_data$x, .25), 2),
-               `50%` = round(quantile(updated_data$x, .5), 2),
-               `75%` = round(quantile(updated_data$x, .75), 2),
-               `90%` = round(quantile(updated_data$x, .9), 2),
-               `95%` = round(quantile(updated_data$x, .95), 2),
-               `97.5%` = round(quantile(updated_data$x, .975), 2))
-
-      # the hdi is irrelevant/misleading for the uniform distribution as it is all the same
-      # the same actually applies to the mode, so I'd like to change that at some point in the code
-      #hdi_length <- length(tidybayes::hdi(updated_data$x, input$summary_range_number / 100))
-
-      # if(hdi_length == 2) {
-      #   uniform_data$hdi <- tibble(HDI = glue::glue("{input$summary_range_number}%"),
-      #                              `Bound 1` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[1], 2),
-      #                              `Bound 2` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[2], 2))
-      # }
-      # else if(hdi_length == 4) {
-      #   uniform_data$hdi <- tibble(`Bnd 1` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[1], 2),
-      #                              `Bnd 2` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[3], 2),
-      #                              `Bnd 3` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[2], 2),
-      #                              `Bnd 4` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[4], 2))
-      # }
-      # else if(hdi_length == 6) {
-      #   uniform_data$hdi <- tibble(`Bnd 1` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[1], 2),
-      #                              `Bnd 2` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[4], 2),
-      #                              `Bnd 3` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[2], 2),
-      #                              `Bnd 4` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[5], 2),
-      #                              `Bnd 5` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[3], 2),
-      #                              `Bnd 6` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[6], 2))
-      # }
-      # else if(hdi_length == 8) {
-      #   uniform_data$hdi <- tibble(`Bnd 1` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[1], 2),
-      #                              `Bnd 2` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[5], 2),
-      #                              `Bnd 3` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[2], 2),
-      #                              `Bnd 4` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[6], 2),
-      #                              `Bnd 5` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[3], 2),
-      #                              `Bnd 6` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[7], 2),
-      #                              `Bnd 7` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[4], 2),
-      #                              `Bnd 8` = round(tidybayes::hdi(updated_data$x, input$summary_range_number / 100)[8], 2))
-      # }
+        tibble(
+          Min = round(min(updated_data$x), 2),
+          `2.5%` = round(quantile(updated_data$x, .025), 2),
+          `5%` =  round(quantile(updated_data$x, .05), 2),
+          `10%` = round(quantile(updated_data$x, .1), 2),
+          `25%` = round(quantile(updated_data$x, .25), 2),
+          `50%` = round(quantile(updated_data$x, .5), 2),
+          `75%` = round(quantile(updated_data$x, .75), 2),
+          `90%` = round(quantile(updated_data$x, .9), 2),
+          `95%` = round(quantile(updated_data$x, .95), 2),
+          `97.5%` = round(quantile(updated_data$x, .975), 2),
+          Max = round(max(updated_data$x), 2)
+        )
 
       uniform_data$data_5000 <- sample_n(updated_data, 5000) %>% mutate(y = 0 + runif(5000, -.5, .5))
       uniform_data$data_density <- sample_n(updated_data, 100000)
@@ -1895,10 +2538,11 @@ server <- function(input, output) {
 
   })
 
+  #### Update update_xxxx_summary functions code ####
   update_beta_summary <- function(type = "partial") {
     data <- beta_data$data
 
-    code_text_value(glue::glue("extraDistr::rprop(1000, {input$beta_precision}, {input$beta_mean})"))
+    # code_text_value(glue::glue("extraDistr::rprop(1000, {input$beta_precision}, {input$beta_mean})"))
 
     beta_data$summary <- summarise(data,
                                    Mean = mean(x),
@@ -1931,15 +2575,19 @@ server <- function(input, output) {
 
     if(type == "full") {
       beta_data$quantiles <-
-        tibble(`2.5%` = nice_num(quantile(data$x, .025), 2),
-               `5%` =  nice_num(quantile(data$x, .05), 2),
-               `10%` = nice_num(quantile(data$x, .1), 2),
-               `25%` = nice_num(quantile(data$x, .25), 2),
-               `50%` = nice_num(quantile(data$x, .5), 2),
-               `75%` = nice_num(quantile(data$x, .75), 2),
-               `90%` = nice_num(quantile(data$x, .9), 2),
-               `95%` = nice_num(quantile(data$x, .95), 2),
-               `97.5%` = nice_num(quantile(data$x, .975), 2))
+        tibble(
+          Min = nice_num(min(data$x), 2),
+          `2.5%` = nice_num(quantile(data$x, .025), 2),
+          `5%` =  nice_num(quantile(data$x, .05), 2),
+          `10%` = nice_num(quantile(data$x, .1), 2),
+          `25%` = nice_num(quantile(data$x, .25), 2),
+          `50%` = nice_num(quantile(data$x, .5), 2),
+          `75%` = nice_num(quantile(data$x, .75), 2),
+          `90%` = nice_num(quantile(data$x, .9), 2),
+          `95%` = nice_num(quantile(data$x, .95), 2),
+          `97.5%` = nice_num(quantile(data$x, .975), 2),
+          Max = nice_num(max(data$x), 2)
+        )
     }
 
   }
@@ -1947,7 +2595,7 @@ server <- function(input, output) {
   update_betapercent_summary <- function(type = "partial") {
     data <- betapercent_data$data
 
-    code_text_value(glue::glue("extraDistr::rprop(1000, {input$betapercent_precision}, {input$betapercent_mean} / 100) * 100"))
+    # code_text_value(glue::glue("extraDistr::rprop(1000, {input$betapercent_precision}, {input$betapercent_mean} / 100) * 100"))
 
     betapercent_data$summary <- summarise(data,
                                           Mean = mean(x),
@@ -1980,22 +2628,26 @@ server <- function(input, output) {
 
     if(type == "full") {
       betapercent_data$quantiles <-
-        tibble(`2.5%` = round(quantile(data$x, .025), 2),
-               `5%` =  round(quantile(data$x, .05), 2),
-               `10%` = round(quantile(data$x, .1), 2),
-               `25%` = round(quantile(data$x, .25), 2),
-               `50%` = round(quantile(data$x, .5), 2),
-               `75%` = round(quantile(data$x, .75), 2),
-               `90%` = round(quantile(data$x, .9), 2),
-               `95%` = round(quantile(data$x, .95), 2),
-               `97.5%` = round(quantile(data$x, .975), 2))
+        tibble(
+          Min = nice_num(min(data$x), 2),
+          `2.5%` = nice_num(quantile(data$x, .025), 2),
+          `5%` =  nice_num(quantile(data$x, .05), 2),
+          `10%` = nice_num(quantile(data$x, .1), 2),
+          `25%` = nice_num(quantile(data$x, .25), 2),
+          `50%` = nice_num(quantile(data$x, .5), 2),
+          `75%` = nice_num(quantile(data$x, .75), 2),
+          `90%` = nice_num(quantile(data$x, .9), 2),
+          `95%` = nice_num(quantile(data$x, .95), 2),
+          `97.5%` = nice_num(quantile(data$x, .975), 2),
+          Max = nice_num(max(data$x), 2)
+        )
     }
   }
 
   update_normal_summary <- function(type = "partial") {
     data <- normal_data$data
 
-    code_text_value(glue::glue("rnorm(1000, {input$normal_mean}, {input$normal_sd})"))
+    # code_text_value(glue::glue("rnorm(1000, {input$normal_mean}, {input$normal_sd})"))
 
     normal_data$summary <- summarise(data,
                                      Mean = mean(x),
@@ -2028,22 +2680,26 @@ server <- function(input, output) {
 
     if(type == "full") {
       normal_data$quantiles <-
-        tibble(`2.5%` = round(quantile(data$x, .025), 2),
-               `5%` =  round(quantile(data$x, .05), 2),
-               `10%` = round(quantile(data$x, .1), 2),
-               `25%` = round(quantile(data$x, .25), 2),
-               `50%` = round(quantile(data$x, .5), 2),
-               `75%` = round(quantile(data$x, .75), 2),
-               `90%` = round(quantile(data$x, .9), 2),
-               `95%` = round(quantile(data$x, .95), 2),
-               `97.5%` = round(quantile(data$x, .975), 2))
+        tibble(
+          Min = nice_num(min(data$x), 2),
+          `2.5%` = nice_num(quantile(data$x, .025), 2),
+          `5%` =  nice_num(quantile(data$x, .05), 2),
+          `10%` = nice_num(quantile(data$x, .1), 2),
+          `25%` = nice_num(quantile(data$x, .25), 2),
+          `50%` = nice_num(quantile(data$x, .5), 2),
+          `75%` = nice_num(quantile(data$x, .75), 2),
+          `90%` = nice_num(quantile(data$x, .9), 2),
+          `95%` = nice_num(quantile(data$x, .95), 2),
+          `97.5%` = nice_num(quantile(data$x, .975), 2),
+          Max = nice_num(max(data$x), 2)
+        )
     }
   }
 
   update_skewnormal_summary <- function(type = "partial") {
     data <- skewnormal_data$data
 
-    code_text_value(glue::glue("sn::rsn(1000, {input$skewnormal_location}, {input$skewnormal_scale}, {input$skewnormal_slant})"))
+    # code_text_value(glue::glue("sn::rsn(1000, {input$skewnormal_location}, {input$skewnormal_scale}, {input$skewnormal_slant})"))
 
     skewnormal_data$summary <- summarise(data,
                                          Mean = mean(x),
@@ -2076,22 +2732,26 @@ server <- function(input, output) {
 
     if(type == "full") {
       skewnormal_data$quantiles <-
-        tibble(`2.5%` = round(quantile(data$x, .025), 2),
-               `5%` =  round(quantile(data$x, .05), 2),
-               `10%` = round(quantile(data$x, .1), 2),
-               `25%` = round(quantile(data$x, .25), 2),
-               `50%` = round(quantile(data$x, .5), 2),
-               `75%` = round(quantile(data$x, .75), 2),
-               `90%` = round(quantile(data$x, .9), 2),
-               `95%` = round(quantile(data$x, .95), 2),
-               `97.5%` = round(quantile(data$x, .975), 2))
+        tibble(
+          Min = nice_num(min(data$x), 2),
+          `2.5%` = nice_num(quantile(data$x, .025), 2),
+          `5%` =  nice_num(quantile(data$x, .05), 2),
+          `10%` = nice_num(quantile(data$x, .1), 2),
+          `25%` = nice_num(quantile(data$x, .25), 2),
+          `50%` = nice_num(quantile(data$x, .5), 2),
+          `75%` = nice_num(quantile(data$x, .75), 2),
+          `90%` = nice_num(quantile(data$x, .9), 2),
+          `95%` = nice_num(quantile(data$x, .95), 2),
+          `97.5%` = nice_num(quantile(data$x, .975), 2),
+          Max = nice_num(max(data$x), 2)
+        )
     }
   }
 
   update_exp_summary <- function(type = "partial") {
     data <- exp_data$data
 
-    code_text_value(glue::glue("rexp(1000, {input$exp_rate})"))
+    # code_text_value(glue::glue("rexp(1000, {input$exp_rate})"))
 
     exp_data$summary <- summarise(data,
                                   Mean = mean(x),
@@ -2124,15 +2784,19 @@ server <- function(input, output) {
 
     if(type == "full") {
       exp_data$quantiles <-
-        tibble(`2.5%` = round(quantile(data$x, .025), 2),
-               `5%` =  round(quantile(data$x, .05), 2),
-               `10%` = round(quantile(data$x, .1), 2),
-               `25%` = round(quantile(data$x, .25), 2),
-               `50%` = round(quantile(data$x, .5), 2),
-               `75%` = round(quantile(data$x, .75), 2),
-               `90%` = round(quantile(data$x, .9), 2),
-               `95%` = round(quantile(data$x, .95), 2),
-               `97.5%` = round(quantile(data$x, .975), 2))
+        tibble(
+          Min = nice_num(min(data$x), 2),
+          `2.5%` = nice_num(quantile(data$x, .025), 2),
+          `5%` =  nice_num(quantile(data$x, .05), 2),
+          `10%` = nice_num(quantile(data$x, .1), 2),
+          `25%` = nice_num(quantile(data$x, .25), 2),
+          `50%` = nice_num(quantile(data$x, .5), 2),
+          `75%` = nice_num(quantile(data$x, .75), 2),
+          `90%` = nice_num(quantile(data$x, .9), 2),
+          `95%` = nice_num(quantile(data$x, .95), 2),
+          `97.5%` = nice_num(quantile(data$x, .975), 2),
+          Max = nice_num(max(data$x), 2)
+        )
     }
 
   }
@@ -2140,7 +2804,7 @@ server <- function(input, output) {
   update_lognormal_summary <- function(type = "partial") {
     data <- lognormal_data$data
 
-    code_text_value(glue::glue("rlnorm(1000, {input$lognormal_mean}, {input$lognormal_sd})"))
+    # code_text_value(glue::glue("rlnorm(1000, {input$lognormal_mean}, {input$lognormal_sd})"))
 
     lognormal_data$summary <- summarise(data,
                                         Mean = mean(x),
@@ -2173,22 +2837,26 @@ server <- function(input, output) {
 
     if(type == "full") {
       lognormal_data$quantiles <-
-        tibble(`2.5%` = round(quantile(data$x, .025), 2),
-               `5%` =  round(quantile(data$x, .05), 2),
-               `10%` = round(quantile(data$x, .1), 2),
-               `25%` = round(quantile(data$x, .25), 2),
-               `50%` = round(quantile(data$x, .5), 2),
-               `75%` = round(quantile(data$x, .75), 2),
-               `90%` = round(quantile(data$x, .9), 2),
-               `95%` = round(quantile(data$x, .95), 2),
-               `97.5%` = round(quantile(data$x, .975), 2))
+        tibble(
+          Min = nice_num(min(data$x), 2),
+          `2.5%` = nice_num(quantile(data$x, .025), 2),
+          `5%` =  nice_num(quantile(data$x, .05), 2),
+          `10%` = nice_num(quantile(data$x, .1), 2),
+          `25%` = nice_num(quantile(data$x, .25), 2),
+          `50%` = nice_num(quantile(data$x, .5), 2),
+          `75%` = nice_num(quantile(data$x, .75), 2),
+          `90%` = nice_num(quantile(data$x, .9), 2),
+          `95%` = nice_num(quantile(data$x, .95), 2),
+          `97.5%` = nice_num(quantile(data$x, .975), 2),
+          Max = nice_num(max(data$x), 2)
+        )
     }
   }
 
   update_t_summary <- function(type = "partial") {
     data <- t_data$data
 
-    code_text_value(glue::glue("stevemisc::rst(1000, {input$t_df}, {input$t_location}, {input$t_scale})"))
+    # code_text_value(glue::glue("stevemisc::rst(1000, {input$t_df}, {input$t_location}, {input$t_scale})"))
 
     t_data$summary <- summarise(data,
                                 Mean = mean(x),
@@ -2221,22 +2889,26 @@ server <- function(input, output) {
 
     if(type == "full") {
       t_data$quantiles <-
-        tibble(`2.5%` = round(quantile(data$x, .025), 2),
-               `5%` =  round(quantile(data$x, .05), 2),
-               `10%` = round(quantile(data$x, .1), 2),
-               `25%` = round(quantile(data$x, .25), 2),
-               `50%` = round(quantile(data$x, .5), 2),
-               `75%` = round(quantile(data$x, .75), 2),
-               `90%` = round(quantile(data$x, .9), 2),
-               `95%` = round(quantile(data$x, .95), 2),
-               `97.5%` = round(quantile(data$x, .975), 2))
+        tibble(
+          Min = nice_num(min(data$x), 2),
+          `2.5%` = nice_num(quantile(data$x, .025), 2),
+          `5%` =  nice_num(quantile(data$x, .05), 2),
+          `10%` = nice_num(quantile(data$x, .1), 2),
+          `25%` = nice_num(quantile(data$x, .25), 2),
+          `50%` = nice_num(quantile(data$x, .5), 2),
+          `75%` = nice_num(quantile(data$x, .75), 2),
+          `90%` = nice_num(quantile(data$x, .9), 2),
+          `95%` = nice_num(quantile(data$x, .95), 2),
+          `97.5%` = nice_num(quantile(data$x, .975), 2),
+          Max = nice_num(max(data$x), 2)
+        )
     }
   }
 
   update_uniform_summary <- function(type = "partial") {
     data <- uniform_data$data
 
-    code_text_value(glue::glue("runif(1000, {input$uniform_min}, {input$uniform_max})"))
+    # code_text_value(glue::glue("runif(1000, {input$uniform_min}, {input$uniform_max})"))
 
     uniform_data$summary <- summarise(data,
                                       Mean = mean(x),
@@ -2245,24 +2917,34 @@ server <- function(input, output) {
                                       `Lower ETI` = quantile(x, (1 - (input$summary_range_number / 100)) / 2),
                                       `Upper ETI` = quantile(x, (input$summary_range_number / 100) + (1 - (input$summary_range_number / 100)) / 2))
 
-    code_text_value(glue::glue("runif(1000, {input$uniform_min}, {input$uniform_max})"))
-
     if(type == "full") {
       uniform_data$quantiles <-
-        tibble(`2.5%` = round(quantile(data$x, .025), 2),
-               `5%` =  round(quantile(data$x, .05), 2),
-               `10%` = round(quantile(data$x, .1), 2),
-               `25%` = round(quantile(data$x, .25), 2),
-               `50%` = round(quantile(data$x, .5), 2),
-               `75%` = round(quantile(data$x, .75), 2),
-               `90%` = round(quantile(data$x, .9), 2),
-               `95%` = round(quantile(data$x, .95), 2),
-               `97.5%` = round(quantile(data$x, .975), 2))
+        tibble(
+          Min = nice_num(min(data$x), 2),
+          `2.5%` = nice_num(quantile(data$x, .025), 2),
+          `5%` =  nice_num(quantile(data$x, .05), 2),
+          `10%` = nice_num(quantile(data$x, .1), 2),
+          `25%` = nice_num(quantile(data$x, .25), 2),
+          `50%` = nice_num(quantile(data$x, .5), 2),
+          `75%` = nice_num(quantile(data$x, .75), 2),
+          `90%` = nice_num(quantile(data$x, .9), 2),
+          `95%` = nice_num(quantile(data$x, .95), 2),
+          `97.5%` = nice_num(quantile(data$x, .975), 2),
+          Max = nice_num(max(data$x), 2)
+        )
     }
 
   }
 
+  ##### update_xxxx_summary on observeEvent input$distribution_choice #####
   observeEvent(input$distribution_choice, {
+
+    # if(is.null(input$distribution_choice) | is.na(input$distribution_choice)) {
+    #   print("hi there")
+    #   print(input$distribution_choice)
+    #   Sys.sleep(1.5)
+    # }
+
     if(input$distribution_choice == "Beta") {
       update_beta_summary(type = "full")
     }
@@ -2287,9 +2969,20 @@ server <- function(input, output) {
     else if(input$distribution_choice == "Uniform") {
       update_uniform_summary(type = "full")
     }
+    # unsure here
+    else {
+      my_target <- which(distribution_values$distribution_list$Custom == input$distribution_choice)
+      update_custom_summary(my_target)
+    }
   })
 
+  #### observeEvent for input$summary_range_type ####
   observeEvent(input$summary_range_type, {
+
+    if(!should_render_ui()) {
+      return()
+    }
+
     if(input$distribution_choice == "Beta") {
       update_beta_summary()
     }
@@ -2314,9 +3007,20 @@ server <- function(input, output) {
     else if(input$distribution_choice == "Uniform") {
       update_uniform_summary()
     }
+    # unsure here
+    else {
+      my_target <- which(distribution_values$distribution_list$Custom == input$distribution_choice)
+      update_custom_summary(my_target)
+    }
   })
 
+  #### observeEvent for input$summary_range_number ####
   observeEvent(input$summary_range_number, {
+
+    if(!should_render_ui()) {
+      return()
+    }
+
     if(input$distribution_choice == "Beta") {
       update_beta_summary()
     }
@@ -2341,9 +3045,20 @@ server <- function(input, output) {
     else if(input$distribution_choice == "Uniform") {
       update_uniform_summary()
     }
+    # unsure here
+    else {
+      my_target <- which(distribution_values$distribution_list$Custom == input$distribution_choice)
+      update_custom_summary(my_target)
+    }
   })
 
+  #### observeEvent for input$summary_point_type ####
   observeEvent(input$summary_point_type, {
+
+    if(!should_render_ui()) {
+      return()
+    }
+
     if(input$distribution_choice == "Beta") {
       update_beta_summary()
     }
@@ -2368,9 +3083,19 @@ server <- function(input, output) {
     else if(input$distribution_choice == "Uniform") {
       update_uniform_summary()
     }
+    # unsure here
+    else {
+      my_target <- which(distribution_values$distribution_list$Custom == input$distribution_choice)
+      update_custom_summary(my_target)
+    }
   })
 
+  #### parameter_ui renderUI ####
   output$parameter_ui <- renderUI({
+
+    if(!should_render_ui()) {
+      return()
+    }
 
     if(input$distribution_choice == "Beta") {
 
@@ -2595,6 +3320,10 @@ server <- function(input, output) {
   #### table output ####
   output$table <- renderFormattable({
 
+    if(!should_render_ui()) {
+      return()
+    }
+
     if(input$distribution_choice == "Beta") {
       if(beta_data$summary$Mean == "...") {
         display_data <-
@@ -2777,10 +3506,25 @@ server <- function(input, output) {
       }
     }
 
+    else {
+
+        display_data <- distribution_values$custom_data_summaries[[which(distribution_values$distribution_list$Custom == input$distribution_choice)]] %>%
+          pivot_longer(cols = everything(),
+                       names_to = "Statistic",
+                       values_to = "Value") %>%
+          mutate(Value = round(Value, 2))
+
+        formattable(display_data, align = "c")
+      }
   })
 
   #### quantile table output ####
   output$quantile_table <- renderFormattable({
+
+    if(!should_render_ui()) {
+      return()
+    }
+
     if(input$distribution_choice == "Beta") {
       formattable(beta_data$quantiles, align = "c")
     }
@@ -2805,6 +3549,9 @@ server <- function(input, output) {
     else if(input$distribution_choice == "Uniform") {
       formattable(uniform_data$quantiles, align = "c")
     }
+    else{
+      formattable(distribution_values$custom_data_quantiles[[which(distribution_values$distribution_list$Custom == input$distribution_choice)]], align = "c")
+    }
   })
 
   #### click table output ####
@@ -2822,6 +3569,11 @@ server <- function(input, output) {
 
   #### hdi table output ####
   output$hdi_table <- renderFormattable({
+
+    if(!should_render_ui()) {
+      return()
+    }
+
     if(input$distribution_choice == "Beta") {
       formattable(beta_data$hdi, align = "c")
     }
@@ -2845,6 +3597,9 @@ server <- function(input, output) {
     }
     else if(input$distribution_choice == "Uniform") {
       formattable(uniform_data$hdi, align = "c")
+    }
+    else{
+      formattable(distribution_values$custom_data_hdis[[which(distribution_values$distribution_list$Custom == input$distribution_choice)]], align = "c")
     }
   })
 
@@ -2878,12 +3633,27 @@ server <- function(input, output) {
     else if(input$distribution_choice == "Uniform") {
       "uniform"
     }
+    else {
+      "custom"
+    }
+
+    if(text_version_data == "custom") {
+      my_target <- which(distribution_values$distribution_list$Custom == input$distribution_choice)
+    }
+
+    my_raw_data <-
+      if(text_version_data != "custom") {
+        eval(parse(text = glue::glue("{text_version_data}_data$data")))
+      }
+    else {
+      distribution_values$custom_data[[my_target]]
+    }
 
     if(input$plot_choice == "Percentogram") {
 
       my_data <-
         percentogram_data <-
-        make_percentogram_x(data = eval(parse(text = glue::glue("{text_version_data}_data$data"))),
+        make_percentogram_x(data = my_raw_data,
                             percent = if(is.null(input$n_percentile)) {5} else {as.numeric(input$n_percentile)},
                             percentile_range = "quintile") %>%
         mutate(x_click = x_point,
@@ -2892,7 +3662,7 @@ server <- function(input, output) {
 
       # my_label <- glue::glue("{my_data %>% pull(lq)}%-{my_data %>% pull(uq)}% = {my_data %>% pull(xmin) %>% nice_num(2, FALSE)}-{my_data %>% pull(xmax) %>% nice_num(2, FALSE)}")
 
-      my_raw_data <- eval(parse(text = glue::glue("{text_version_data}_data$data"))) %>% pull(x)
+      my_raw_data <- my_raw_data %>% pull(x)
 
       if(input$plot_format == "Standard") {
         # my_density <- density(my_raw_data)
@@ -2914,7 +3684,7 @@ server <- function(input, output) {
       }
     }
     else {
-      my_raw_data <- eval(parse(text = glue::glue("{text_version_data}_data$data"))) %>% pull(x)
+      my_raw_data <- my_raw_data %>% pull(x)
 
       my_density <- density(my_raw_data)
       my_density <- approx(my_density$x, my_density$y, xout = x_point)$y
@@ -2933,6 +3703,12 @@ server <- function(input, output) {
   theme_set(theme_distributr())
 
   output$left_plot <- renderPlot({
+
+    # distribution_values$custom_data_hdis[[which(distribution_values$distribution_list$Custom == input$distribution_choice)]]
+
+    if(!should_render_ui()) {
+      return()
+    }
 
     text_version_data <-
       if(input$distribution_choice == "Beta") {
@@ -2959,6 +3735,13 @@ server <- function(input, output) {
     else if(input$distribution_choice == "Uniform") {
       "uniform"
     }
+    else{
+      "custom"
+    }
+
+    if(text_version_data == "custom") {
+      my_target <- which(distribution_values$distribution_list$Custom == input$distribution_choice)
+    }
 
     if(input$plot_range[1] == 0 & input$plot_range[2] == 100) {
       plot_limits <- coord_cartesian()
@@ -2969,7 +3752,14 @@ server <- function(input, output) {
           NA
         }
       else {
-        eval(parse(text = glue::glue("{text_version_data}_data$data"))) %>% pull(x) %>% quantile(input$plot_range[1] / 100)
+        if(text_version_data == "custom") {
+          distribution_values$custom_data[[my_target]] %>%
+            pull(x) %>%
+            quantile(input$plot_range[1] / 100)
+        }
+        else {
+          eval(parse(text = glue::glue("{text_version_data}_data$data"))) %>% pull(x) %>% quantile(input$plot_range[1] / 100)
+        }
       }
 
       upper_limit <-
@@ -2977,7 +3767,14 @@ server <- function(input, output) {
           NA
         }
       else {
-        eval(parse(text = glue::glue("{text_version_data}_data$data"))) %>% pull(x) %>% quantile(input$plot_range[2] / 100)
+        if(text_version_data == "custom") {
+          distribution_values$custom_data[[my_target]] %>%
+            pull(x) %>%
+            quantile(input$plot_range[2] / 100)
+        }
+        else {
+          eval(parse(text = glue::glue("{text_version_data}_data$data"))) %>% pull(x) %>% quantile(input$plot_range[2] / 100)
+        }
       }
 
       plot_limits <- coord_cartesian(xlim = c(lower_limit, upper_limit))
@@ -3049,45 +3846,87 @@ server <- function(input, output) {
         "Uniform distribution"
       }
     }
+    else {
+      if(input$plot_choice == "Percentogram") {
+        glue::glue("Custom distribution data - {input$distribution_choice}")
+      }
+      else{
+        glue::glue("Custom distribution - {input$distribution_choice}")
+      }
+    }
 
     percentogram_data <-
+      if(text_version_data == "custom") {
+        make_percentogram_x(data = distribution_values$custom_data[[my_target]],
+                            percent = if(is.null(input$n_percentile)) {5} else {as.numeric(input$n_percentile)},
+                            percentile_range = "quintile")
+      }
+    else {
       make_percentogram_x(data = eval(parse(text = glue::glue("{text_version_data}_data$data"))),
                           percent = if(is.null(input$n_percentile)) {5} else {as.numeric(input$n_percentile)},
                           percentile_range = "quintile")
+    }
 
-    if(eval(parse(text = glue::glue("{text_version_data}_data$summary$Mean"))) == "...") {
-      point_estimate_line <-
-        tibble(x = as.numeric(NA))
+    if(text_version_data != "custom") {
+      if(eval(parse(text = glue::glue("{text_version_data}_data$summary$Mean"))) == "...") {
+        point_estimate_line <-
+          tibble(x = as.numeric(NA))
 
-      interval_line <-
-        tibble(x = as.numeric(NA))
+        interval_line <-
+          tibble(x = as.numeric(NA))
+      }
+      else {
+        point_estimate_line <-
+          if(input$summary_point_type == "Mean") {
+            tibble(x = eval(parse(text = glue::glue("{text_version_data}_data$summary$Mean"))))
+          }
+        else if(input$summary_point_type == "Median") {
+          tibble(x = eval(parse(text = glue::glue("{text_version_data}_data$summary$Median"))))
+        }
+        else if(input$summary_point_type == "Mode") {
+          tibble(x = eval(parse(text = glue::glue("{text_version_data}_data$summary$Mode"))))
+        }
+
+        interval_line <-
+          if(input$summary_range_type == "Highest density interval") {
+            if(input$distribution_choice == "Uniform") {
+              tibble(x = as.numeric(NA))
+            }
+            else {
+              eval(parse(text = glue::glue("{text_version_data}_data$hdi"))) %>% select(-contains("HDI")) %>% pivot_longer(cols = everything(),
+                                                                                                                           names_to = "bound",
+                                                                                                                           values_to = "x")
+            }
+          }
+        else if(input$summary_range_type == "Quantile/equal-tailed interval") {
+          tibble(x = c(eval(parse(text = glue::glue("{text_version_data}_data$summary$`Lower ETI`"))),
+                       eval(parse(text = glue::glue("{text_version_data}_data$summary$`Upper ETI`")))))
+        }
+      }
     }
     else {
       point_estimate_line <-
         if(input$summary_point_type == "Mean") {
-          tibble(x = eval(parse(text = glue::glue("{text_version_data}_data$summary$Mean"))))
+          tibble(x = distribution_values$custom_data_summaries[[my_target]]$Mean)
         }
       else if(input$summary_point_type == "Median") {
-        tibble(x = eval(parse(text = glue::glue("{text_version_data}_data$summary$Median"))))
+        tibble(x = distribution_values$custom_data_summaries[[my_target]]$Median)
       }
       else if(input$summary_point_type == "Mode") {
-        tibble(x = eval(parse(text = glue::glue("{text_version_data}_data$summary$Mode"))))
+        tibble(x = distribution_values$custom_data_summaries[[my_target]]$Mode)
       }
 
       interval_line <-
         if(input$summary_range_type == "Highest density interval") {
-          if(input$distribution_choice == "Uniform") {
-            tibble(x = as.numeric(NA))
-          }
-          else {
-            eval(parse(text = glue::glue("{text_version_data}_data$hdi"))) %>% select(-contains("HDI")) %>% pivot_longer(cols = everything(),
-                                                                                                                         names_to = "bound",
-                                                                                                                         values_to = "x")
-          }
+          distribution_values$custom_data_hdis[[my_target]] %>%
+            select(-contains("HDI")) %>%
+            pivot_longer(cols = everything(),
+                         names_to = "bound",
+                         values_to = "x")
         }
       else if(input$summary_range_type == "Quantile/equal-tailed interval") {
-        tibble(x = c(eval(parse(text = glue::glue("{text_version_data}_data$summary$`Lower ETI`"))),
-                     eval(parse(text = glue::glue("{text_version_data}_data$summary$`Upper ETI`")))))
+        tibble(x = c(distribution_values$custom_data_summaries[[my_target]]$`Lower ETI`,
+                     distribution_values$custom_data_summaries[[my_target]]$`Upper ETI`))
       }
     }
 
@@ -3120,8 +3959,17 @@ server <- function(input, output) {
       }
     }
     else if(input$plot_choice == "Histogram") {
+
+      my_plot_data <-
+        if(text_version_data != "custom") {
+          eval(parse(text = glue::glue("{text_version_data}_data$data")))
+        }
+      else {
+        distribution_values$custom_data[[my_target]]
+      }
+
       if(input$plot_format == "Standard") {
-        ggplot(eval(parse(text = glue::glue("{text_version_data}_data$data")))) +
+        ggplot(my_plot_data) +
           plot_limits +
           geom_histogram(aes(x = x), alpha = .8, fill = "#327291", color = "black", bins = as.numeric(input$n_bins), linewidth = .275) +
           geom_vline(data = point_estimate_line, aes(xintercept = as.numeric(x)), linewidth = .67) +
@@ -3132,7 +3980,7 @@ server <- function(input, output) {
                 axis.text.y = element_blank())
       }
       else if(input$plot_format == "Cumulative") {
-        ggplot(eval(parse(text = glue::glue("{text_version_data}_data$data")))) +
+        ggplot(my_plot_data) +
           plot_limits +
           scale_y_continuous(labels = paste0(seq(0, 100, 10), "%"), breaks = seq(0, 500000, 50000)) +
           geom_histogram(aes(x = x, y = cumsum(..count..)), alpha = .8, fill = "#327291", color = "black", bins = as.numeric(input$n_bins), linewidth = .275) +
@@ -3144,8 +3992,17 @@ server <- function(input, output) {
       }
     }
     else if(input$plot_choice == "Density") {
+
+      my_plot_data <-
+        if(text_version_data != "custom") {
+          eval(parse(text = glue::glue("{text_version_data}_data$data_density")))
+        }
+      else {
+        distribution_values$data_density[[my_target]]
+      }
+
       if(input$plot_format == "Standard") {
-        ggplot(eval(parse(text = glue::glue("{text_version_data}_data$data_density")))) +
+        ggplot(my_plot_data) +
           plot_limits +
           geom_density(aes(x = x), alpha = .8, fill = "#327291", color = "white") +
           geom_vline(data = point_estimate_line, aes(xintercept = as.numeric(x)), linewidth = .67) +
@@ -3156,7 +4013,7 @@ server <- function(input, output) {
                 axis.text.y = element_blank())
       }
       else if(input$plot_format == "Cumulative") {
-        ggplot(eval(parse(text = glue::glue("{text_version_data}_data$data_density")))) +
+        ggplot(my_plot_data) +
           plot_limits +
           scale_y_continuous(breaks = seq(0, 1, .1), labels = scales::percent_format(scale = 100)) +
           stat_ecdf(aes(x = x), alpha = .8, fill = "#327291", color = "#327291") +
@@ -3168,7 +4025,16 @@ server <- function(input, output) {
       }
     }
     else if(input$plot_choice == "Points") {
-      ggplot(eval(parse(text = glue::glue("{text_version_data}_data$data_5000")))) +
+
+      my_plot_data <-
+        if(text_version_data != "custom") {
+          eval(parse(text = glue::glue("{text_version_data}_data$data_5000")))
+        }
+      else {
+        distribution_values$data_5000[[my_target]]
+      }
+
+      ggplot(my_plot_data) +
         plot_limits +
         geom_point(aes(x = x, y = y), shape = 21, alpha = .25, fill = "#327291", color = "white") +
         geom_vline(data = point_estimate_line, aes(xintercept = as.numeric(x)), linewidth = .67) +
