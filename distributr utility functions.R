@@ -456,7 +456,10 @@ make_percentogram_x <- function(data, percent = 5, percentile_range = FALSE, var
 }
 
 #### hdp function ####
-hdp <- function(data) {
+hdp <- function(data, na.rm = FALSE) {
+  if (na.rm) {
+    data <- na.omit(data)
+  }
   
   hdp <- density(data)$x[which.max(density(data)$y)]
   
